@@ -1,12 +1,11 @@
 /**
  * @file bmp.h
  * @author Nilo Edson (niloedson.ms@gmail.com)
- * @brief Bitmap images C library
- * @version 0.2
+ * @brief Bitmap C library
+ * @version 0.4
  * @date 2022-03-16
  * 
  * @copyright Copyright (c) 2022
- * 
  */
 
 #ifndef __BMP_H_
@@ -28,7 +27,33 @@
 #define BMP_FILETYPE_PT 0x5054
 
 #define BMP_DEFAULT_COLORPLANES 1
+
 #define BMP_FILEHEADER_SIZE 14
+
+// 16bpp bit masks ========================================
+#define BMP_BITFIELDS_R5G5B5_R5 0x7C00
+#define BMP_BITFIELDS_R5G5B5_G5 0x03E0
+#define BMP_BITFIELDS_R5G5B5_B5 0x001F
+
+#define BMP_BITFIELDS_R5G6B5_R5 0xF800
+#define BMP_BITFIELDS_R5G6B5_G6 0x07E0
+#define BMP_BITFIELDS_R5G6B5_B5 0x001F
+
+#define BMP_ALPHABITFIELDS_R4G4B4A4_R4 0x0F00
+#define BMP_ALPHABITFIELDS_R4G4B4A4_G4 0x00F0
+#define BMP_ALPHABITFIELDS_R4G4B4A4_B4 0x000F
+#define BMP_ALPHABITFIELDS_R4G4B4A4_A4 0xF000
+
+// 32bpp bit masks ========================================
+#define BMP_ALPHABITFIELDS_R8G8B8A8_R8 0x00FF0000
+#define BMP_ALPHABITFIELDS_R8G8B8A8_G8 0x0000FF00
+#define BMP_ALPHABITFIELDS_R8G8B8A8_B8 0x000000FF
+#define BMP_ALPHABITFIELDS_R8G8B8A8_A8 0xFF000000
+
+#define BMP_ALPHABITFIELDS_R8G7B9A5_R8 0x0001FE00
+#define BMP_ALPHABITFIELDS_R8G7B9A5_G7 0x00FE0000
+#define BMP_ALPHABITFIELDS_R8G7B9A5_B9 0x000001FF
+#define BMP_ALPHABITFIELDS_R8G7B9A5_A5 0x1F000000
 
 #pragma pack(1)
 
@@ -73,12 +98,30 @@ typedef enum bmp_color {
     BMP_COLOR_BLUE = 0
 } bmp_color;
 
+typedef enum bmp_ncolours {
+    BMP_NCOLOURS_256 = 256,
+    BMP_NCOLOURS_128 = 128,
+    BMP_NCOLOURS_64 = 64,
+    BMP_NCOLOURS_32 = 32,
+    BMP_NCOLOURS_16 = 16,
+    BMP_NCOLOURS_8 = 8,
+    BMP_NCOLOURS_4 = 4,
+    BMP_NCOLOURS_2 = 2
+} bmp_ncolours;
+
 // (from https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logcolorspacea)
+// (from https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/eb4bbd50-b3ce-4917-895c-be31f214797f) 
 typedef enum bmp_bv4cstype {
-    BMP_LCS_CALIBRATED_RGB,
-    BMP_LCS_sRGB,
-    BMP_LCS_WINDOWS_COLOR_SPACE
+    BMP_LCS_CALIBRATED_RGB = 0x00000000,
+    BMP_LCS_sRGB = 0x73524742,
+    BMP_LCS_WINDOWS_COLOR_SPACE = 0x57696E20
 } bmp_bv4cstype;
+
+// (from https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/3c289fe1-c42e-42f6-b125-4b5fc49a2b20)
+typedef enum bmp_bv5cstype {
+    BMP_LCS_PROFILE_LINKED = 0x4C494E4B,
+    BMP_LCS_PROFILE_EMBEDDED = 0x4D424544
+} bmp_bv5cstype;
 
 /* Coordinates structures -----------------------------------------------------*/
 
@@ -229,7 +272,7 @@ typedef struct bmp_rgbtriple {
 #pragma pack(1)
 typedef struct bmp_coreinfo {
     bmp_coreheader bmciHeader;
-    bmp_rgbtriple * bmciColours;
+    bmp_rgbtriple * bmciColors;
 } bmp_coreinfo;
 
 // BITMAPINFO structure
@@ -238,7 +281,7 @@ typedef struct bmp_info {
     bmp_infoheader bmiHeader;
     bmp_v4header bmiv4Header;
     bmp_v5header bmiv5Header;
-    bmp_rgbquad * bmiColours;
+    bmp_rgbquad * bmiColors;
 } bmp_info;
 
 /* Main Structure -------------------------------------------------------------*/
@@ -254,25 +297,139 @@ typedef struct bmp_image {
 
 /* Functions ------------------------------------------------------------------*/
 
-// file related functions
+/* file related functions -----------------------------------------------------*/
+
+/**
+ * @brief Read a Bitmap image and returns its metadata organized 
+ * in a <bmp_image> struct pointer.
+ * 
+ * @param filename string specifying the filename to be read.
+ * @return bmp_image* - pointer to the struct loaded with the 
+ *                      <filename> image data.
+ */
 bmp_image * bmp_read(const char * filename);
+
+/**
+ * @brief Creates a Bitmap file with the <bmp_image> metadata.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param filename string specifying the filename to be created.
+ * @return int - returns 0 if something goes wrong, 1 otherwise.
+ */
 int bmp_save(const bmp_image * img, const char * filename);
 
-// action functions
+/* RGB functions --------------------------------------------------------------*/
+
+/**
+ * @brief Get the specified color value from the image[x,y] pixel.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param x the pixel x position.
+ * @param y the pixel y position.
+ * @param color the specified color.
+ * @return uint8_t - color value retrieved.
+ */
 uint8_t bmp_getpixelcolor(bmp_image * img, int x, int y, bmp_color color);
+
+/**
+ * @brief Find the gray-scale equivalent value from RGB entries.
+ * 
+ * @param red red color entry value.
+ * @param green green color entry value.
+ * @param blue blue color entry value.
+ * @return uint8_t - calculated gray-scale equivalent value.
+ */
 uint8_t bmp_findgray(uint8_t red, uint8_t green, uint8_t blue);
 
-// processing functions
-void bmp_rgb2gray(bmp_image * img);
+/**
+ * @brief Converts an RGB (24bpp) image into a indexed gray level image (8bpp) 
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param ncolours how many colours to use in the gray palette.
+ * @return bmp_image* pointer to the new indexed gray level image.
+ */
+bmp_image * bmp_rgb2gray(bmp_image * img, bmp_ncolours ncolours);
+
+/**
+ * @brief Filter an RGB (24bpp) image by the specified color.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param color the specified color to filter.
+ */
 void bmp_filtercolor(bmp_image * img, bmp_color color);
+
+/**
+ * @brief Invert colors from an RGB (24bpp) image.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ */
 void bmp_invert(bmp_image * img);
 
-// misc functions
-void bmp_details(bmp_image * img);
+/* printing functions ---------------------------------------------------------*/
+
+/**
+ * @brief Print the image's metadata from its headers.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ */
+void bmp_printdetails(bmp_image * img);
+
+/**
+ * @brief Print the specified image[x,y] pixel value.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param x the pixel x position.
+ * @param y the pixel y position.
+ */
 void bmp_printpixel(bmp_image * img, int x, int y);
 
-// helper functions
+/* helper functions -----------------------------------------------------------*/
+
+/**
+ * @brief Clean both pointers.
+ * 
+ * @param fptr file pointer.
+ * @param img <bmp_image> pointer.
+ * @return bmp_image* always NULL.
+ */
 bmp_image * bmp_cleanup(FILE * fptr , bmp_image * img);
+
+/**
+ * @brief Check file headers to evaluate Bitmap conformity.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @return int - returns 0 if headers have some problem, 1 otherwise.
+ */
 int bmp_checkheaders(bmp_image * img);
+
+/* Easter eggs ----------------------------------------------------------------*/
+
+/**
+ * @brief Retrieves the Redbricks.bmp as a 4bpp sample image.
+ * 
+ * @return bmp_image* - pointer to the metadata generated.
+ */
+bmp_image * bmp_getredbricks();
+
+/**
+ * @brief Retrieves an 8bpp BI_RGB sample image of black fading to white.
+ * 
+ * @return bmp_image* - pointer to the metadata generated.
+ */
+bmp_image * bmp_8bpp_sample();
+
+/**
+ * @brief Retrieves an 16bpp BI_RGB sample mixing red and blue.
+ * 
+ * @return bmp_image* - pointer to the metadata generated.
+ */
+bmp_image * bmp_16bpp_sample();
+
+/**
+ * @brief Retrieves an 32bpp BI_RGB sample mixing green and blue.
+ * 
+ * @return bmp_image* - pointer to the metadata generated.
+ */
+bmp_image * bmp_32bpp_sample();
 
 #endif
