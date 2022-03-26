@@ -109,6 +109,11 @@ typedef enum bmp_ncolours {
     BMP_NCOLOURS_2 = 2
 } bmp_ncolours;
 
+typedef enum bmp_padtype {
+    BMP_PADTYPE_ZEROS,
+    BMP_PADTYPE_REPLICATE
+} bmp_padtype;
+
 // (from https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-logcolorspacea)
 // (from https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-wmf/eb4bbd50-b3ce-4917-895c-be31f214797f) 
 typedef enum bmp_bv4cstype {
@@ -364,6 +369,36 @@ void bmp_filtercolor(bmp_image * img, bmp_color color);
  * @param img pointer to the <bmp_image> metadata.
  */
 void bmp_invert(bmp_image * img);
+
+/* padding functions ----------------------------------------------------------*/
+
+/**
+ * @brief Add padding borders to the specified image.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param rows number of rows to be added as padding.
+ * @param columns number of columns to be added as padding.
+ * @param padtype padding type to be used.
+ */
+void bmp_addpad(bmp_image * img, uint32_t rows, uint32_t columns, bmp_padtype padtype);
+
+/**
+ * @brief Add padding horizontaly.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param num number of columns to be added as padding.
+ * @param padtype padding type to be used.
+ */
+void bmp_padh(bmp_image * img, uint32_t num, bmp_padtype padtype);
+
+/**
+ * @brief Add padding vertically.
+ * 
+ * @param img pointer to the <bmp_image> metadata.
+ * @param num number of rows to be added as padding.
+ * @param padtype padding type to be used.
+ */
+void bmp_padv(bmp_image * img, uint32_t num, bmp_padtype padtype);
 
 /* printing functions ---------------------------------------------------------*/
 
