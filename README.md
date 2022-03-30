@@ -31,6 +31,8 @@ All the samples mentioned above were generated using my own `bmp.h` library whil
 
 All of them are well known images used for this purpose. Notice that they are all in Bitmap format. All of them were converted from their respective `*.tif`/`*.tiff` format using some online TIF to BMP converter and then rearranged for a `8 bits per pixel` format using this `bmp.h` library.
 
+`salt-pepper.bmp` in particular, is compressed using RLE8 (the specified `BMP_BI_RLE8` compression type).
+
 
 
 ## Using the `bmp.h` library
