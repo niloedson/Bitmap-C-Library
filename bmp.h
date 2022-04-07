@@ -2,8 +2,8 @@
  * @file bmp.h
  * @author Nilo Edson (niloedson.ms@gmail.com)
  * @brief Bitmap C library
- * @version 0.4
- * @date 2022-03-16
+ * @version 0.7
+ * @date 2022-04-06
  * 
  * @copyright Copyright (c) 2022
  */
@@ -59,15 +59,14 @@
 
 /* Enumerations ---------------------------------------------------------------*/
 
-typedef enum bmp_dibheader {
-    BMP_LEGACYHEADER = 24,
-    BMP_COREHEADER = 12,
+typedef enum bmp_dibformat {
+    BMP_UNKNOWN_HEADER = 0,
     BMP_INFOHEADER = 40,
     BMP_V4HEADER = 108,
     BMP_V5HEADER = 124
-} bmp_dibheader;
+} bmp_dibformat;
 
-typedef enum bmp_bpp {
+typedef enum bmp_bitcount {
     BMP_32_BITS = 32,
     BMP_24_BITS = 24,
     BMP_16_BITS = 16,
@@ -76,9 +75,10 @@ typedef enum bmp_bpp {
     BMP_2_BITS = 2,
     BMP_1_BIT = 1, 
     BMP_0_BITS = 0
-} bmp_bpp;
+} bmp_bitcount;
 
 typedef enum bmp_compression {
+    BMP_UNKNOWN_COMPRESSION = 32,
     BMP_BI_RGB = 0,
     BMP_BI_RLE8 = 1,
     BMP_BI_RLE4 = 2,
@@ -98,16 +98,16 @@ typedef enum bmp_color {
     BMP_COLOR_BLUE = 0
 } bmp_color;
 
-typedef enum bmp_ncolours {
-    BMP_NCOLOURS_256 = 256,
-    BMP_NCOLOURS_128 = 128,
-    BMP_NCOLOURS_64 = 64,
-    BMP_NCOLOURS_32 = 32,
-    BMP_NCOLOURS_16 = 16,
-    BMP_NCOLOURS_8 = 8,
-    BMP_NCOLOURS_4 = 4,
-    BMP_NCOLOURS_2 = 2
-} bmp_ncolours;
+typedef enum bmp_setncolours {
+    BMP_SET_256_COLOURS = 256,
+    BMP_SET_128_COLOURS = 128,
+    BMP_SET_64_COLOURS = 64,
+    BMP_SET_32_COLOURS = 32,
+    BMP_SET_16_COLOURS = 16,
+    BMP_SET_8_COLOURS = 8,
+    BMP_SET_4_COLOURS = 4,
+    BMP_SET_2_COLOURS = 2
+} bmp_setncolours;
 
 typedef enum bmp_padtype {
     BMP_PADTYPE_ZEROS,
@@ -128,6 +128,14 @@ typedef enum bmp_bv5cstype {
     BMP_LCS_PROFILE_EMBEDDED = 0x4D424544
 } bmp_bv5cstype;
 
+// (from https://docs.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-bitmapv5header)
+typedef enum bmp_bv5intent {
+    BMP_LCS_GM_ABS_COLORIMETRIC,
+    BMP_LCS_GM_BUSINESS,
+    BMP_LCS_GM_GRAPHICS,
+    BMP_LCS_GM_IMAGES
+} bmp_bv5intent;
+
 /* Coordinates structures -----------------------------------------------------*/
 
 // CIEXYZ structure
@@ -146,18 +154,6 @@ typedef struct bmp_ciexyztriple {
     bmp_ciexyz ciexyzBlue;
 } bmp_ciexyztriple;
 
-// BITMAP legacy structure (from https://docs.microsoft.com/pt-br/windows/win32/api/wingdi/ns-wingdi-bitmap)
-#pragma pack(1)
-typedef struct bmp_legacy {
-  int32_t bmType;
-  int32_t bmWidth;
-  int32_t bmHeight;
-  int32_t bmWidthBytes;
-  uint16_t bmPlanes;
-  uint16_t bmBitsPixel;
-  uint8_t * bmBits;
-} bmp_legacy;
-
 /* FILE Header ----------------------------------------------------------------*/
 
 // BITMAPFILEHEADER structure
@@ -172,46 +168,25 @@ typedef struct bmp_fileheader {
 
 /* DIB Headers ----------------------------------------------------------------*/
 
-// BITMAPCOREHEADER structure
-#pragma pack(1)
-typedef struct bmp_coreheader {
-    uint32_t bcSize;
-    uint16_t bcWidth;
-    uint16_t bcHeight;
-    uint16_t bcPlanes;
-    uint16_t bcBitCount;
-} bmp_coreheader;
-
 // BITMAPINFOHEADER structure
 #pragma pack(1)
 typedef struct bmp_infoheader {
     uint32_t biSize;
-    uint32_t biWidth;
-    uint32_t biHeight;
+    int32_t biWidth;
+    int32_t biHeight;
     uint16_t biPlanes;
     uint16_t biBitCount;
     uint32_t biCompression;
     uint32_t biSizeImage;
-    uint32_t biXPelsPerMeter;
-    uint32_t biYPelsPerMeter;
+    int32_t biXPelsPerMeter;
+    int32_t biYPelsPerMeter;
     uint32_t biClrUsed;
     uint32_t biClrImportant;
 } bmp_infoheader;
 
-// BITMAPV4HEADER structure
+// BITMAPV4HEADER structure complementary piece
 #pragma pack(1)
 typedef struct bmp_v4header {
-    uint32_t bV4Size;
-    int32_t bV4Width;
-    int32_t bV4Height;
-    uint16_t bV4Planes;
-    uint16_t bV4BitCount;
-    uint32_t bV4Compression;
-    uint32_t bV4SizeImage;
-    int32_t bV4XPelsPerMeter;
-    int32_t bV4YPelsPerMeter;
-    uint32_t bV4ClrUsed;
-    uint32_t bV4ClrImportant;
     uint32_t bV4RedMask;
     uint32_t bV4GreenMask;
     uint32_t bV4BlueMask;
@@ -223,29 +198,9 @@ typedef struct bmp_v4header {
     uint32_t bV4GammaBlue;
 } bmp_v4header;
 
-// BITMAPV5HEADER structure
+// BITMAPV5HEADER structure complementary piece
 #pragma pack(1)
 typedef struct bmp_v5header {
-    uint32_t bV5Size;
-    int32_t bV5Width;
-    int32_t bV5Height;
-    uint16_t bV5Planes;
-    uint16_t bV5BitCount;
-    uint32_t bV5Compression;
-    uint32_t bV5SizeImage;
-    int32_t bV5XPelsPerMeter;
-    int32_t bV5YPelsPerMeter;
-    uint32_t bV5ClrUsed;
-    uint32_t bV5ClrImportant;
-    uint32_t bV5RedMask;
-    uint32_t bV5GreenMask;
-    uint32_t bV5BlueMask;
-    uint32_t bV5AlphaMask;
-    uint32_t bV5CSType;
-    bmp_ciexyztriple bV5Endpoints;
-    uint32_t bV5GammaRed;
-    uint32_t bV5GammaGreen;
-    uint32_t bV5GammaBlue;
     uint32_t bV5Intent;
     uint32_t bV5ProfileData;
     uint32_t bV5ProfileSize;
@@ -273,21 +228,14 @@ typedef struct bmp_rgbtriple {
 
 /* Joint structures -----------------------------------------------------------*/
 
-// BITMAPCOREINFO structure
+// BITMAPINFO structure bmp_dibheader
 #pragma pack(1)
-typedef struct bmp_coreinfo {
-    bmp_coreheader bmciHeader;
-    bmp_rgbtriple * bmciColors;
-} bmp_coreinfo;
-
-// BITMAPINFO structure
-#pragma pack(1)
-typedef struct bmp_info {
+typedef struct bmp_dibheader {
     bmp_infoheader bmiHeader;
     bmp_v4header bmiv4Header;
     bmp_v5header bmiv5Header;
     bmp_rgbquad * bmiColors;
-} bmp_info;
+} bmp_dibheader;
 
 /* Main Structure -------------------------------------------------------------*/
 //  (from https://docs.microsoft.com/en-us/windows/win32/gdi/bitmap-storage?redirectedfrom=MSDN)
@@ -295,8 +243,7 @@ typedef struct bmp_info {
 #pragma pack(1)
 typedef struct bmp_image {
     bmp_fileheader fileheader;
-    bmp_coreinfo coreinfo;
-    bmp_info info;
+    bmp_dibheader dib;
     uint8_t * ciPixelArray;
 } bmp_image;
 
@@ -321,7 +268,7 @@ bmp_image * bmp_read(const char * filename);
  * @param filename string specifying the filename to be created.
  * @return int - returns 0 if something goes wrong, 1 otherwise.
  */
-int bmp_save(const bmp_image * img, const char * filename);
+int bmp_save(bmp_image * img, const char * filename);
 
 /* RGB functions --------------------------------------------------------------*/
 
@@ -353,7 +300,7 @@ uint8_t bmp_findgray(uint8_t red, uint8_t green, uint8_t blue);
  * @param ncolours how many colours to use in the gray palette.
  * @return bmp_image* pointer to the new indexed gray level image.
  */
-bmp_image * bmp_rgb2gray(bmp_image * img, bmp_ncolours ncolours);
+bmp_image * bmp_rgb2gray(bmp_image * img, bmp_setncolours ncolours);
 
 /**
  * @brief Filter an RGB (24bpp) image by the specified color.
@@ -437,7 +384,7 @@ bmp_image * bmp_cleanup(FILE * fptr , bmp_image * img);
  */
 int bmp_checkheaders(bmp_image * img);
 
-/* Easter eggs ----------------------------------------------------------------*/
+/* easter eggs ----------------------------------------------------------------*/
 
 /**
  * @brief Retrieves the Redbricks.bmp as a 4bpp sample image.
@@ -466,5 +413,71 @@ bmp_image * bmp_16bpp_sample();
  * @return bmp_image* - pointer to the metadata generated.
  */
 bmp_image * bmp_32bpp_sample();
+
+/* utils ----------------------------------------------------------------------*/
+
+/**
+ * @brief Get file size from the <bmp_image> metadata.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the file size.
+ */
+uint32_t bmp_getfilesize(bmp_image * img);
+
+/**
+ * @brief Get offset from the <bmp_image> metadata.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the offset.
+ */
+uint32_t bmp_getoffset(bmp_image * img);
+
+/**
+ * @brief Get datasize from the <bmp_image> metadata.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the data size.
+ */
+uint32_t bmp_getdatasize(bmp_image * img);
+
+/**
+ * @brief Get DIB header format from the <bmp_image> metadata.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the DIB header format.
+ */
+uint32_t bmp_getdibformat(bmp_image * img);
+
+/**
+ * @brief Get bit count from the <bmp_image> metadata.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint16_t - the bit count.
+ */
+uint16_t bmp_getbitcount(bmp_image * img);
+
+/**
+ * @brief Get palette size from the <bmp_image> metadata.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the palette size.
+ */
+uint32_t bmp_getpalettesize(bmp_image * img);
+
+/**
+ * @brief Get compression type from the <bmp_image> metadata.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the compression type.
+ */
+uint32_t bmp_getcompression(bmp_image * img);
+
+/**
+ * @brief Get how many pixels are specified for this image.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the number of pixels.
+ */
+uint32_t bmp_getnpixels(bmp_image * img);
 
 #endif
