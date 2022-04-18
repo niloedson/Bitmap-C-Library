@@ -35,6 +35,17 @@ All of them are well known images used for this purpose. Notice that they are al
 
 
 
-## Using the `bmp.h` library
+## Version History
 
-(still being written)
+| Version | Date              | Description                                                  |
+| ------- | ----------------- | ------------------------------------------------------------ |
+| 0.00001 | February 04, 2022 | First Release:<br />- Regular structs based on the works of Yung-Hsiang Lu at his [book](https://amzn.to/36rehCe);<br />- Common processing functions for 24 bits per pixel images only;<br />- Color filtering function;<br />- Invert colors function;<br />- Equalize colors function;<br />- Print image headers and specified pixel functions;<br />- Get pixel values function; |
+| 0.00002 | March 06, 2022    | Second Release:<br />- Defined filetypes to support (or add support in the future);<br />- Included standardizations from [Microsoft Metafile Format specification](https://docs.microsoft.com/en-us/windows/win32/gdi/bitmap-storage?redirectedfrom=MSDN);<br />- Specified enumerations for multiple DIB headers (LEGACYHEADER, COREHEADER, INFOHEADER, V4HEADER and V5HEADER);<br />- Support conversion from 24-bits per pixel to 8-bits per pixel formats;<br />- Included RGB to Gray Scale conversion function; |
+| 0.00003 | March 16, 2022    | Third Release:<br />- Defined Bitfields masks for 16bpp and 32bpp images;<br />- Defined color spaces for both V4HEADER and V5HEADER fields;<br />- Organized the repository; <br />- Included sample images being used;<br />- Refactored all code;<br />- Implemented functions that return sample images as example (including the `Redbricks` example); |
+| 0.00004 | March 16, 2022    | Added:<br />- Implementation of new padding functions.       |
+| 0.00005 | March 26, 2022    | Added:<br />- Complete integration of padding functions to the `bmp.h` library; |
+| 0.00006 | March 30, 2022    | Updated:<br />- README.md;                                   |
+| 0.00007 | April 06, 2022    | Added:<br />- Support for reading BITMAPV4HEADER;<br />- Support for reading BITMAPV5HEADER;<br />- Utility functions;<br />- New structures formats;<br />- Support for reading 16bpp and 32bpp images;<br />- Intent enumeration;<br /><br />Removed:<br />- Support for legacy headers;<br />- Support for core header; |
+| 0.00008 | April 17, 2022    | Support for RLE8 decoding:<br />Added:<br />- `bmp_rle8duo` structure; <br />- `bmp_getncolors()` function; <br />- `bmp_cpdibs()` function; <br />- `bmp_rle8decoder()` function;<br /><br />Modified:<br />- `bmp_read()` function: now implements adjustments on the palette size readings; <br />- `bmp_save()` function: now supports writing v4 & v5 headers and add pads for the image lines; <br />- `bmp_getpalettesize()` function: adjusted to return total byte size; |
+| 0.00009 | April 18, 2022    | Updated:<br />- README.md;                                   |
+
