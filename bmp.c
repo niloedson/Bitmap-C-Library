@@ -47,21 +47,21 @@ bmp_image * bmp_read(const char * filename)
     case BMP_1_BIT:
     case BMP_4_BITS:
     case BMP_8_BITS:
-        img->dib.bmiColors = malloc(sizeof(bmp_rgbquad)*palettesize);
-        if (fread( img->dib.bmiColors, sizeof(bmp_rgbquad), palettesize, fptr) != palettesize) 
+        img->dib.bmiColors = malloc(palettesize);
+        if (fread( img->dib.bmiColors, palettesize, 1, fptr) != 1) 
             return bmp_cleanup(fptr, img);
         break;
     case BMP_16_BITS:
         if (img->dib.bmiHeader.biCompression == BMP_BI_BITFIELDS)
         {
-            if (fread( img->dib.bmiColors, sizeof(bmp_rgbquad), 3, fptr) != 3) 
+            if (fread( img->dib.bmiColors, palettesize, 1, fptr) != 1) 
                 return bmp_cleanup(fptr, img);
         }
         break;
     case BMP_32_BITS:
         if (img->dib.bmiHeader.biCompression == BMP_BI_BITFIELDS)
         {
-            if (fread( img->dib.bmiColors, sizeof(bmp_rgbquad), 4, fptr) != 4) 
+            if (fread( img->dib.bmiColors, palettesize, 1, fptr) != 1) 
                 return bmp_cleanup(fptr, img);
         }
         break;
@@ -73,7 +73,8 @@ bmp_image * bmp_read(const char * filename)
 
     uint32_t datasize = bmp_getdatasize(img);
 
-    img->ciPixelArray = malloc(sizeof(uint8_t) * datasize);
+    img->ciPixelArray = malloc(sizeof(uint8_t)*datasize);
+    
     if (img->ciPixelArray == NULL) 
         return bmp_cleanup(fptr, img);
 
@@ -102,7 +103,21 @@ int bmp_save(bmp_image * img, const char * filename)
         return 0;
     }
 
-    uint8_t * archive = (uint8_t *) img->dib.bmiColors;
+    if (img->dib.bmiHeader.biSize >= BMP_V4HEADER)
+    {
+        if (fwrite(&img->dib.bmiv4Header, sizeof(bmp_v4header), 1, fptr) != 1) {
+            fclose(fptr);
+            return 0;
+        }
+    }
+    
+    if (img->dib.bmiHeader.biSize >= BMP_V5HEADER)
+    {
+        if (fwrite(&img->dib.bmiv5Header, sizeof(bmp_v5header), 1, fptr) != 1) {
+            fclose(fptr);
+            return 0;
+        }
+    }
     
     uint32_t palettesize = bmp_getpalettesize(img);
 
@@ -110,19 +125,19 @@ int bmp_save(bmp_image * img, const char * filename)
     case BMP_1_BIT:
     case BMP_4_BITS:
     case BMP_8_BITS:
-        if (fwrite(archive, sizeof(uint8_t), palettesize, fptr) != palettesize) {
+        if (fwrite(img->dib.bmiColors, palettesize, 1, fptr) != 1) {
             fclose(fptr);
             return 0;
         }
         break;
     case BMP_16_BITS:
-        if (fwrite(archive, sizeof(uint8_t), 4*3, fptr) != 4*3) {
+        if (fwrite(img->dib.bmiColors, palettesize, 1, fptr) != 1) {
             fclose(fptr);
             return 0;
         }
         break;
     case BMP_32_BITS:
-        if (fwrite(archive, sizeof(uint8_t), 4*4, fptr) != 4*4) {
+        if (fwrite(img->dib.bmiColors, palettesize, 1, fptr) != 1) {
             fclose(fptr);
             return 0;
         }
@@ -135,9 +150,39 @@ int bmp_save(bmp_image * img, const char * filename)
 
     uint32_t datasize = bmp_getdatasize(img);
 
-    if (fwrite(img->ciPixelArray, sizeof(uint8_t), datasize, fptr) != datasize) {
-        fclose(fptr);
-        return 0;
+    uint32_t lines = img->dib.bmiHeader.biHeight;
+    uint32_t cols = img->dib.bmiHeader.biWidth / 8;
+
+    uint8_t * datapadded;
+
+    if (img->dib.bmiHeader.biWidth % 8)
+    {
+        cols += 1;
+        cols = cols*8;
+        
+        datapadded = malloc(sizeof(uint8_t)*lines*cols);
+
+        for (uint32_t i = 0; i < lines*cols; i++) datapadded[i] = 0;
+        
+        for (uint32_t y = 0; y < lines; y++)
+        {
+            for (uint32_t x = 0; x < img->dib.bmiHeader.biWidth; x++)
+            {
+                datapadded[y*cols + x] = img->ciPixelArray[y*img->dib.bmiHeader.biWidth + x];
+            }
+        }
+
+        if (fwrite(datapadded, sizeof(uint8_t), lines*cols, fptr) != lines*cols) {
+           fclose(fptr);
+            return 0;
+        }
+    }
+    else
+    {
+        if (fwrite(img->ciPixelArray, sizeof(uint8_t), datasize, fptr) != datasize) {
+           fclose(fptr);
+            return 0;
+        }
     }
 
     fclose(fptr);
@@ -893,10 +938,28 @@ uint16_t bmp_getbitcount(bmp_image * img)
 
 uint32_t bmp_getpalettesize(bmp_image * img)
 {
-    if (img->dib.bmiHeader.biClrUsed == 0) {
-        return sizeof(bmp_rgbquad) * pow(2, img->dib.bmiHeader.biBitCount);
-    } else {
-        return img->dib.bmiHeader.biClrUsed;
+    switch (img->dib.bmiHeader.biBitCount)
+    {
+    case BMP_0_BITS:
+    case BMP_1_BIT:
+    case BMP_2_BITS:
+    case BMP_4_BITS:
+    case BMP_8_BITS:
+        if (img->dib.bmiHeader.biClrUsed == 0) {
+            return sizeof(bmp_rgbquad) * pow(2, img->dib.bmiHeader.biBitCount);
+        } else {
+            return sizeof(bmp_rgbquad) * img->dib.bmiHeader.biClrUsed;
+        }
+        break;
+    case BMP_16_BITS:
+        return sizeof(bmp_rgbquad) * 3;
+        break;
+    case BMP_32_BITS:
+        return sizeof(bmp_rgbquad) * 4;
+        break;
+    case BMP_24_BITS:
+        // never expect color palette
+    default: return 0;
     }
 }
 
@@ -922,4 +985,161 @@ uint32_t bmp_getcompression(bmp_image * img)
 uint32_t bmp_getnpixels(bmp_image * img)
 {
     return img->dib.bmiHeader.biWidth * img->dib.bmiHeader.biHeight;
+}
+
+uint32_t bmp_getncolors(bmp_image * img)
+{
+    switch (img->dib.bmiHeader.biBitCount)
+    {
+    case BMP_0_BITS:
+    case BMP_1_BIT:
+    case BMP_2_BITS:
+    case BMP_4_BITS:
+    case BMP_8_BITS:
+        if (img->dib.bmiHeader.biClrUsed == 0) {
+            return pow(2, img->dib.bmiHeader.biBitCount);
+        } else {
+            return img->dib.bmiHeader.biClrUsed;
+        }
+        break;
+    case BMP_16_BITS:
+        return 3;
+        break;
+    case BMP_32_BITS:
+        return 4;
+        break;
+    case BMP_24_BITS:
+        // never expect color palette
+    default: return 0;
+    }
+}
+
+void bmp_cpdibs(bmp_image * new, bmp_image * img)
+{
+    if (new == NULL) return;
+    if (img == NULL) return;
+
+    new->dib.bmiHeader.biSize = img->dib.bmiHeader.biSize;
+    new->dib.bmiHeader.biWidth = img->dib.bmiHeader.biWidth;
+    new->dib.bmiHeader.biHeight = img->dib.bmiHeader.biHeight;
+    new->dib.bmiHeader.biPlanes = img->dib.bmiHeader.biPlanes;
+    new->dib.bmiHeader.biBitCount = img->dib.bmiHeader.biBitCount;
+    new->dib.bmiHeader.biCompression = img->dib.bmiHeader.biCompression;
+    new->dib.bmiHeader.biXPelsPerMeter = img->dib.bmiHeader.biXPelsPerMeter;
+    new->dib.bmiHeader.biYPelsPerMeter = img->dib.bmiHeader.biYPelsPerMeter;
+    new->dib.bmiHeader.biClrUsed = img->dib.bmiHeader.biClrUsed;
+    new->dib.bmiHeader.biClrImportant = img->dib.bmiHeader.biClrImportant;
+
+    if (new->dib.bmiHeader.biSize >= BMP_V4HEADER)
+    {
+        new->dib.bmiv4Header.bV4RedMask = img->dib.bmiv4Header.bV4RedMask;
+        new->dib.bmiv4Header.bV4GreenMask = img->dib.bmiv4Header.bV4GreenMask;
+        new->dib.bmiv4Header.bV4BlueMask = img->dib.bmiv4Header.bV4BlueMask;
+        new->dib.bmiv4Header.bV4AlphaMask = img->dib.bmiv4Header.bV4AlphaMask;
+        new->dib.bmiv4Header.bV4CSType = img->dib.bmiv4Header.bV4CSType;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzRed.ciexyzX = img->dib.bmiv4Header.bV4Endpoints.ciexyzRed.ciexyzX;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzRed.ciexyzY = img->dib.bmiv4Header.bV4Endpoints.ciexyzRed.ciexyzY;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzRed.ciexyzZ = img->dib.bmiv4Header.bV4Endpoints.ciexyzRed.ciexyzZ;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzGreen.ciexyzX = img->dib.bmiv4Header.bV4Endpoints.ciexyzGreen.ciexyzX;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzGreen.ciexyzY = img->dib.bmiv4Header.bV4Endpoints.ciexyzGreen.ciexyzY;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzGreen.ciexyzZ = img->dib.bmiv4Header.bV4Endpoints.ciexyzGreen.ciexyzZ;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzBlue.ciexyzX = img->dib.bmiv4Header.bV4Endpoints.ciexyzBlue.ciexyzX;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzBlue.ciexyzY = img->dib.bmiv4Header.bV4Endpoints.ciexyzBlue.ciexyzY;
+        new->dib.bmiv4Header.bV4Endpoints.ciexyzBlue.ciexyzZ = img->dib.bmiv4Header.bV4Endpoints.ciexyzBlue.ciexyzZ;
+        new->dib.bmiv4Header.bV4GammaRed = img->dib.bmiv4Header.bV4GammaRed;
+        new->dib.bmiv4Header.bV4GammaGreen = img->dib.bmiv4Header.bV4GammaGreen;
+        new->dib.bmiv4Header.bV4GammaBlue = img->dib.bmiv4Header.bV4GammaBlue;
+    }
+
+    if (new->dib.bmiHeader.biSize >= BMP_V5HEADER)
+    {
+        new->dib.bmiv5Header.bV5Intent = img->dib.bmiv5Header.bV5Intent;
+        new->dib.bmiv5Header.bV5ProfileData = img->dib.bmiv5Header.bV5ProfileData;
+        new->dib.bmiv5Header.bV5ProfileSize = img->dib.bmiv5Header.bV5ProfileSize;
+        new->dib.bmiv5Header.bV5Reserved = img->dib.bmiv5Header.bV5Reserved;
+    }
+}
+
+bmp_image * bmp_rle8decoder(bmp_image * img)
+{
+    if (img == NULL) return NULL;
+    if (bmp_getcompression(img) != BMP_BI_RLE8) return NULL;
+
+    bmp_image * new = malloc(sizeof(bmp_image));
+
+    bmp_cpdibs(new, img);
+    
+    new->dib.bmiHeader.biSize = BMP_INFOHEADER;
+    new->dib.bmiHeader.biCompression = BMP_BI_RGB;
+    new->dib.bmiHeader.biSizeImage = new->dib.bmiHeader.biWidth
+                    * new->dib.bmiHeader.biHeight
+                    * new->dib.bmiHeader.biBitCount / BMP_8_BITS;
+    
+    new->dib.bmiHeader.biClrUsed = 0;
+    new->dib.bmiHeader.biClrImportant = 0;
+
+    uint32_t palettesize = bmp_getpalettesize(img);
+    
+    new->fileheader.bfType = BMP_FILETYPE_BM;
+    new->fileheader.bfSize = BMP_FILEHEADER_SIZE 
+                    + new->dib.bmiHeader.biSize 
+                    + palettesize 
+                    + new->dib.bmiHeader.biSizeImage;
+    
+    new->fileheader.bfReserved1 = 0;
+    new->fileheader.bfReserved2 = 0;
+    
+    new->fileheader.bfOffBits = BMP_FILEHEADER_SIZE 
+                    + new->dib.bmiHeader.biSize 
+                    + palettesize;
+
+    if (palettesize > 0)
+    {
+        new->dib.bmiColors = malloc(palettesize);
+        
+        uint8_t * ncptr = (uint8_t *) new->dib.bmiColors;
+        uint8_t * icptr = (uint8_t *) img->dib.bmiColors;
+
+        for (uint32_t i = 0; i < palettesize; i++) {
+            ncptr[i] = icptr[i];
+        }
+    }
+
+    uint32_t datasize = bmp_getdatasize(img);
+    
+    bmp_rle8duo * duos = malloc(sizeof(bmp_rle8duo)*datasize/2);
+    
+    for (uint32_t i = 0; i < datasize/2; i++)
+    {
+        duos[i].count = img->ciPixelArray[2*i+0];
+        duos[i].value = img->ciPixelArray[2*i+1];
+    }
+    
+    new->ciPixelArray = malloc(new->dib.bmiHeader.biSizeImage);
+    
+    uint32_t index = 0;
+    
+    for (uint32_t pixel = 0; pixel < new->dib.bmiHeader.biSizeImage;)
+    {
+        if (duos[index+1].count == 0)
+        {
+            if (duos[index+1].value == 1) break;
+            if (duos[index+1].value == 0) {
+                if (duos[index].count > 0) duos[index].count -= 1;
+            }
+        }
+
+        while (duos[index].count > 0)
+        {
+            new->ciPixelArray[pixel] = duos[index].value;
+            pixel += 1; 
+            duos[index].count -= 1;
+        }
+
+        index = index + 1;
+    }
+
+    free(duos);
+
+    return new;
 }

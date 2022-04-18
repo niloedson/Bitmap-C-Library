@@ -136,6 +136,14 @@ typedef enum bmp_bv5intent {
     BMP_LCS_GM_IMAGES
 } bmp_bv5intent;
 
+/* RLE structures -------------------------------------------------------------*/
+
+#pragma pack(1)
+typedef struct bmp_rle8duo {
+    uint8_t count;
+    uint8_t value;
+} bmp_rle8duo;
+
 /* Coordinates structures -----------------------------------------------------*/
 
 // CIEXYZ structure
@@ -479,5 +487,30 @@ uint32_t bmp_getcompression(bmp_image * img);
  * @return uint32_t - the number of pixels.
  */
 uint32_t bmp_getnpixels(bmp_image * img);
+
+/**
+ * @brief Get how many colors are being used by this image.
+ * 
+ * @param img <bmp_image> pointer.
+ * @return uint32_t - the number of colors
+ */
+uint32_t bmp_getncolors(bmp_image * img);
+
+/**
+ * @brief Copy DIB headers from <bmp_image> A to <bmp_image> B.
+ * 
+ * @param b <bmp_image> pointer.
+ * @param a <bmp_image> pointer.
+ */
+void bmp_cpdibs(bmp_image * b, bmp_image * a);
+
+/* run-length encoding functions ----------------------------------------------*/
+
+/**
+ * @brief Decode a <bmp_image> from BI_RLE8 into BI_RGB.
+ * 
+ * @param img <bmp_image> pointer.
+ */
+bmp_image * bmp_rle8decoder(bmp_image * img);
 
 #endif
