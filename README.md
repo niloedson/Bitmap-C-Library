@@ -47,5 +47,5 @@ All of them are well known images used for this purpose. Notice that they are al
 | 0.00006 | March 30, 2022    | Updated:<br />- README.md;                                   |
 | 0.00007 | April 06, 2022    | Added:<br />- Support for reading BITMAPV4HEADER;<br />- Support for reading BITMAPV5HEADER;<br />- Utility functions;<br />- New structures formats;<br />- Support for reading 16bpp and 32bpp images;<br />- Intent enumeration;<br /><br />Removed:<br />- Support for legacy headers;<br />- Support for core header; |
 | 0.00008 | April 17, 2022    | Support for RLE8 decoding:<br />Added:<br />- `bmp_rle8duo` structure; <br />- `bmp_getncolors()` function; <br />- `bmp_cpdibs()` function; <br />- `bmp_rle8decoder()` function;<br /><br />Modified:<br />- `bmp_read()` function: now implements adjustments on the palette size readings; <br />- `bmp_save()` function: now supports writing v4 & v5 headers and add pads for the image lines; <br />- `bmp_getpalettesize()` function: adjusted to return total byte size; |
-| 0.00009 | April 18, 2022    | Updated:<br />- README.md;                                   |
+| 0.00009 | April 18, 2022    | Updated:<br />- README.md;<br /><br />Minor updates:<br />- Better variable names;<br/>- Improved generic functions to support more bits per pixel formats; |
 

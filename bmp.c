@@ -126,30 +126,31 @@ int bmp_save(bmp_image * img, const char * filename)
 
     uint32_t datasize = bmp_getdatasize(img);
 
-    uint32_t lines = img->dib.bmiHeader.biHeight;
-    uint32_t cols = img->dib.bmiHeader.biWidth / 8;
+    uint32_t rows = img->dib.bmiHeader.biHeight;
+    uint32_t columns = img->dib.bmiHeader.biWidth / 8;
 
     uint8_t * datapadded;
 
     if (img->dib.bmiHeader.biWidth % 8)
     {
-        cols = cols+1;
-        cols = cols*8;
+        columns = columns + 1;
+        columns = columns * 8;
         
-        datapadded = malloc(sizeof(uint8_t)*lines*cols);
+        datapadded = malloc(sizeof(uint8_t)*rows*columns);
 
-        for (uint32_t i = 0; i < lines*cols; i++) datapadded[i] = 0;
+        for (uint32_t i = 0; i < rows*columns; i++) datapadded[i] = 0;
         
-        for (uint32_t y = 0; y < lines; y++)
+        for (uint32_t y = 0; y < rows; y++)
         {
             for (uint32_t x = 0; x < img->dib.bmiHeader.biWidth; x++)
             {
-                datapadded[y*cols + x] = img->ciPixelArray[y*img->dib.bmiHeader.biWidth + x];
+                datapadded[y*columns + x] = img->ciPixelArray[y*img->dib.bmiHeader.biWidth + x];
             }
         }
 
-        if (fwrite(datapadded, sizeof(uint8_t), lines*cols, fptr) != lines*cols) {
-           fclose(fptr);
+        if (fwrite(datapadded, sizeof(uint8_t), rows*columns, fptr) != rows*columns) {
+            fclose(fptr);
+            free(datapadded);
             return 0;
         }
 
@@ -158,7 +159,7 @@ int bmp_save(bmp_image * img, const char * filename)
     else
     {
         if (fwrite(img->ciPixelArray, sizeof(uint8_t), datasize, fptr) != datasize) {
-           fclose(fptr);
+            fclose(fptr);
             return 0;
         }
     }
@@ -170,11 +171,36 @@ int bmp_save(bmp_image * img, const char * filename)
 
 uint8_t bmp_getpixelcolor(bmp_image * img, int x, int y, bmp_color color)
 {
-    //TODO: add support for 1, 4, 16 and 32 bits per pixel images
-    if (img->dib.bmiHeader.biBitCount == BMP_8_BITS) 
-        return img->ciPixelArray[ y*img->dib.bmiHeader.biWidth + x ];
-    
-    return img->ciPixelArray[3*(y*img->dib.bmiHeader.biWidth + x) + color];
+    switch (img->dib.bmiHeader.biBitCount)
+    {
+    case BMP_0_BITS:
+    case BMP_1_BIT:
+    case BMP_2_BITS:
+    case BMP_4_BITS:
+        //TODO: add support for these formats.
+        return 0;
+        break;
+    case BMP_8_BITS:
+        return img->ciPixelArray[y*img->dib.bmiHeader.biWidth+x];
+        break;
+    case BMP_16_BITS:
+        //TODO: add support for this format.
+        return 0;
+        break;
+    case BMP_24_BITS:
+        return img->ciPixelArray[3*(y*img->dib.bmiHeader.biWidth+x)+color];
+        break;
+    case BMP_32_BITS:
+        return img->ciPixelArray[4*(y*img->dib.bmiHeader.biWidth+x)+color];
+        break;
+
+    default:
+        return 0;
+        break;
+    }
+    // if (img->dib.bmiHeader.biBitCount == BMP_8_BITS) 
+    //     return img->ciPixelArray[ y*img->dib.bmiHeader.biWidth + x ];
+    // return img->ciPixelArray[3*(y*img->dib.bmiHeader.biWidth + x) + color];
 }
 
 uint8_t bmp_findgray(uint8_t red, uint8_t green, uint8_t blue)
@@ -270,8 +296,13 @@ bmp_image * bmp_rgb2gray(bmp_image * img, bmp_setncolours ncolours)
 
 void bmp_filtercolor(bmp_image * img, bmp_color color)
 {
-    //TODO: add support for 1, 4, 8, 16 and 32 bits per pixel images
-    uint32_t datasize = img->fileheader.bfSize - img->fileheader.bfOffBits;
+    //TODO: add support for 16 and 32 bits per pixel images.
+    if (img->dib.bmiHeader.biBitCount != BMP_24_BITS) return;
+    
+    //TODO: add support for compressed images.
+    if (img->dib.bmiHeader.biCompression != BMP_BI_RGB) return;
+    
+    uint32_t datasize = bmp_getdatasize(img);
 
     for (unsigned int pixel = color; pixel < datasize; pixel++) {
         if ((pixel % 3) != color) {
@@ -279,13 +310,32 @@ void bmp_filtercolor(bmp_image * img, bmp_color color)
         }
     }
 }
+
 void bmp_invert(bmp_image * img)
 {
-    //TODO: add support for 1, 4, 16 and 32 bits per pixel images
-    uint32_t datasize = img->fileheader.bfSize - img->fileheader.bfOffBits;
-
-    for (unsigned int index = 0; index < datasize; index++) {
-        img->ciPixelArray[index] = 255 - img->ciPixelArray[index];
+    uint32_t datasize = bmp_getdatasize(img);
+    
+    switch (img->dib.bmiHeader.biBitCount)
+    {
+    case BMP_1_BIT:
+    case BMP_2_BITS:
+    case BMP_4_BITS:
+    case BMP_16_BITS:
+        //TODO: implement this behavior.
+        break;
+    case BMP_32_BITS:
+        for (uint32_t i = 0; i < datasize; i++) {
+            if ((i+1)%4) img->ciPixelArray[i] = ~img->ciPixelArray[i];
+        }
+        break;
+    case BMP_8_BITS:
+    case BMP_24_BITS:
+        for (uint32_t i = 0; i < datasize; i++) {
+            img->ciPixelArray[i] = ~img->ciPixelArray[i];
+        }
+        break;
+    default:
+        break;
     }
 }
 
@@ -297,7 +347,7 @@ void bmp_addpad(bmp_image * img, uint32_t rows, uint32_t columns, bmp_padtype ty
 
 void bmp_padh(bmp_image * img, uint32_t num, bmp_padtype type)
 {
-    if (img->dib.bmiHeader.biBitCount != 8) return;
+    if (img->dib.bmiHeader.biBitCount != BMP_8_BITS) return;
     //TODO: add support to other bit per pixel configurations.
 
     uint32_t newWidth = img->dib.bmiHeader.biWidth + 2*num;
@@ -369,7 +419,7 @@ void bmp_padh(bmp_image * img, uint32_t num, bmp_padtype type)
 
 void bmp_padv(bmp_image * img, uint32_t num, bmp_padtype type)
 {
-    if (img->dib.bmiHeader.biBitCount != 8) return;
+    if (img->dib.bmiHeader.biBitCount != BMP_8_BITS) return;
     //TODO: add support to other bit per pixel configurations.
 
     uint32_t newHeight = img->dib.bmiHeader.biHeight + 2*num;
@@ -505,12 +555,40 @@ void bmp_printdetails(bmp_image * img)
 
 void bmp_printpixel(bmp_image * img, int x, int y)
 {
-    printf(
-        "img[%i][%i] = (%u, %u, %u)\n", x, y, 
-        bmp_getpixelcolor(img, x, y, BMP_COLOR_RED), 
-        bmp_getpixelcolor(img, x, y, BMP_COLOR_GREEN), 
-        bmp_getpixelcolor(img, x, y, BMP_COLOR_BLUE)
-    );
+    switch (img->dib.bmiHeader.biBitCount)
+    {
+    case BMP_1_BIT:
+    case BMP_2_BITS:
+    case BMP_4_BITS:
+    case BMP_16_BITS:
+        //TODO: implement support for these bpp.
+        break;
+    case BMP_8_BITS:
+        printf(
+            "img[%i][%i] = (%u)\n", x, y, 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_RED)
+        );
+        break;
+    case BMP_24_BITS:
+        printf(
+            "img[%i][%i] = (%u, %u, %u)\n", x, y, 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_RED), 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_GREEN), 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_BLUE)
+        );
+        break;
+    case BMP_32_BITS:
+        printf(
+            "img[%i][%i] = (%u, %u, %u, %u)\n", x, y, 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_RED), 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_GREEN), 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_BLUE), 
+            bmp_getpixelcolor(img, x, y, BMP_COLOR_ALPHA)
+        );
+        break;
+    default:
+        break;
+    }
 }
 
 bmp_image * bmp_cleanup(FILE * fptr , bmp_image * img)
