@@ -52,15 +52,10 @@ bmp_image * bmp_read(const char * filename)
             return bmp_cleanup(fptr, img);
         break;
     case BMP_16_BITS:
-        if (img->dib.bmiHeader.biCompression == BMP_BI_BITFIELDS)
-        {
-            if (fread( img->dib.bmiColors, palettesize, 1, fptr) != 1) 
-                return bmp_cleanup(fptr, img);
-        }
-        break;
     case BMP_32_BITS:
         if (img->dib.bmiHeader.biCompression == BMP_BI_BITFIELDS)
         {
+            img->dib.bmiColors = malloc(palettesize);
             if (fread( img->dib.bmiColors, palettesize, 1, fptr) != 1) 
                 return bmp_cleanup(fptr, img);
         }
@@ -121,31 +116,12 @@ int bmp_save(bmp_image * img, const char * filename)
     
     uint32_t palettesize = bmp_getpalettesize(img);
 
-    switch (img->dib.bmiHeader.biBitCount) {
-    case BMP_1_BIT:
-    case BMP_4_BITS:
-    case BMP_8_BITS:
+    if (palettesize > 0)
+    {
         if (fwrite(img->dib.bmiColors, palettesize, 1, fptr) != 1) {
             fclose(fptr);
             return 0;
         }
-        break;
-    case BMP_16_BITS:
-        if (fwrite(img->dib.bmiColors, palettesize, 1, fptr) != 1) {
-            fclose(fptr);
-            return 0;
-        }
-        break;
-    case BMP_32_BITS:
-        if (fwrite(img->dib.bmiColors, palettesize, 1, fptr) != 1) {
-            fclose(fptr);
-            return 0;
-        }
-        break;
-    case BMP_24_BITS:
-        // never write a BMP color palette
-    default:
-        break;
     }
 
     uint32_t datasize = bmp_getdatasize(img);
@@ -157,7 +133,7 @@ int bmp_save(bmp_image * img, const char * filename)
 
     if (img->dib.bmiHeader.biWidth % 8)
     {
-        cols += 1;
+        cols = cols+1;
         cols = cols*8;
         
         datapadded = malloc(sizeof(uint8_t)*lines*cols);
@@ -176,6 +152,8 @@ int bmp_save(bmp_image * img, const char * filename)
            fclose(fptr);
             return 0;
         }
+
+        free(datapadded);
     }
     else
     {
